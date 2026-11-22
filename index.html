@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FF TIER LIST</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0b1020;color:#f4f6ff;font:16px system-ui,sans-serif}
+header{padding:28px 18px;text-align:center;background:linear-gradient(135deg,#151d39,#29204a);border-bottom:1px solid #303b61}
+h1{margin:0;color:#ffd45a;letter-spacing:2px}header p{color:#b8c2e2;margin:8px 0 0}
+main{max-width:850px;margin:22px auto;padding:0 14px;display:grid;gap:16px}
+section{background:#141c31;border:1px solid #293657;border-radius:15px;padding:18px}
+h2{margin:0 0 14px;font-size:20px}input,select,button{width:100%;padding:12px;margin:6px 0;border-radius:9px;border:1px solid #3b496d;background:#0c1428;color:white;font:inherit}
+button{background:#f5c84c;color:#161616;font-weight:800;border:0;cursor:pointer}button.secondary{background:#2a385e;color:#fff}
+.small{color:#aeb9d8;font-size:13px}.msg{min-height:22px;color:#ffd45a}
+table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #303b58;text-align:left}th{color:#ffd45a}
+.tier{font-weight:800;color:#ffd45a}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:560px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>FF TIER LIST</h1><p>Community player ranking • Free Fire</p></header>
+<main>
+<section><h2>สมัครทดสอบ Tier</h2>
+<form id="apply">
+<input name="player_name" placeholder="ชื่อในเกม" required>
+<input name="uid" placeholder="UID ผู้เล่น" required>
+<select name="region"><option value="TH">Thailand</option><option value="Other">Other</option></select>
+<input name="proof_url" placeholder="ลิงก์คลิป/หลักฐาน (ถ้ามี)">
+<button>ส่งใบสมัคร</button></form><div id="applyMsg" class="msg"></div>
+</section>
+<section><h2>Leaderboard</h2><button class="secondary" id="refresh">รีเฟรชอันดับ</button>
+<div style="overflow:auto"><table><thead><tr><th>ผู้เล่น</th><th>UID</th><th>Tier</th></tr></thead><tbody id="players"><tr><td colspan="3">กำลังโหลด...</td></tr></tbody></table></div><div id="boardMsg" class="small"></div>
+</section>
+<section><h2>เข้าสู่ระบบแอดมิน</h2>
+<form id="login"><input name="email" type="email" placeholder="อีเมลแอดมิน" required><input name="password" type="password" placeholder="รหัสผ่าน" required><button>เข้าสู่ระบบ</button></form>
+<div id="adminMsg" class="msg"></div>
+<div id="adminPanel" hidden>
+<h2>จัดการใบสมัคร</h2><button class="secondary" id="loadApps">โหลดใบสมัคร</button><div id="apps"></div>
+<h2>เพิ่ม/แก้ไข Tier ผู้เล่น</h2>
+<form id="editPlayer"><input name="player_name" placeholder="ชื่อในเกม" required><input name="uid" placeholder="UID" required>
+<select name="tier"><option>HT1</option><option>HT2</option><option>LT1</option><option>LT2</option><option>LT3</option><option>HT3</option></select>
+<button>บันทึกผู้เล่น</button></form><div id="editMsg" class="msg"></div>
+<button class="secondary" id="logout">ออกจากระบบ</button>
+</div>
+</section>
+<p class="small">หมายเหตุ: เว็บนี้ใช้การทดสอบและอนุมัติโดยแอดมิน ไม่ได้ดึงข้อมูลจากเซิร์ฟเวอร์เกมโดยตรง</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://vfvwsuawjrpwofmwxywq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_i0K_sslSikY3vLkmuHLDSg_5ELMQx1P";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $=id=>document.getElementById(id);
+async function leaderboard(){
+  const {data,error}=await db.from('players').select('player_name,uid,tier').order('tier');
+  if(error){$('players').innerHTML='<tr><td colspan="3">โหลดไม่สำเร็จ</td></tr>';$('boardMsg').textContent=error.message;return;}
+  $('players').innerHTML=data.length?data.map(p=>`<tr><td>${esc(p.player_name)}</td><td>${esc(p.uid)}</td><td class="tier">${esc(p.tier)}</td></tr>`).join(''):'<tr><td colspan="3">ยังไม่มีผู้เล่น</td></tr>';
+  $('boardMsg').textContent='';
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+$('refresh').onclick=leaderboard;
+$('apply').onsubmit=async e=>{e.preventDefault();let f=Object.fromEntries(new FormData(e.target));let {error}=await db.from('applications').insert({...f,status:'pending'});$('applyMsg').textContent=error?'ส่งไม่สำเร็จ: '+error.message:'ส่งใบสมัครแล้ว รอแอดมินตรวจสอบ';if(!error)e.target.reset();};
+$('login').onsubmit=async e=>{e.preventDefault();let f=Object.fromEntries(new FormData(e.target));let {error}=await db.auth.signInWithPassword({email:f.email,password:f.password});$('adminMsg').textContent=error?'เข้าสู่ระบบไม่สำเร็จ: '+error.message:'เข้าสู่ระบบแล้ว';if(!error){$('adminPanel').hidden=false;e.target.hidden=true;}};
+$('logout').onclick=async()=>{await db.auth.signOut();$('adminPanel').hidden=true;$('login').hidden=false;$('adminMsg').textContent='ออกจากระบบแล้ว';};
+$('loadApps').onclick=async()=>{let {data,error}=await db.from('applications').select('*').order('created_at',{ascending:false});if(error){$('apps').textContent=error.message;return;} $('apps').innerHTML=data.map(a=>`<div style="padding:12px;border:1px solid #34415f;border-radius:10px;margin:8px 0"><b>${esc(a.player_name)}</b> — UID ${esc(a.uid)} — ${esc(a.status)}<br><span class="small">${esc(a.proof_url||'ไม่มีลิงก์หลักฐาน')}</span><div class="row"><button onclick="decide('${a.id}','approved')">อนุมัติ</button><button class="secondary" onclick="decide('${a.id}','rejected')">ปฏิเสธ</button></div></div>`).join('')||'ไม่มีใบสมัคร';};
+window.decide=async(id,status)=>{let {error}=await db.from('applications').update({status}).eq('id',id);if(error)alert(error.message);$('loadApps').click();};
+$('editPlayer').onsubmit=async e=>{e.preventDefault();let f=Object.fromEntries(new FormData(e.target));let {error}=await db.from('players').upsert(f,{onConflict:'uid'});$('editMsg').textContent=error?'บันทึกไม่สำเร็จ: '+error.message:'บันทึกแล้ว';if(!error){e.target.reset();leaderboard();}};
+leaderboard();
+</script>
+</body></html>
